@@ -47,6 +47,7 @@ define(function(require, exports, module) {
         this._entityId = Entity.register(this);
         this._size = [undefined, undefined];
         this._contextSize = [undefined, undefined];
+        this._itemsLength = 0;
 
         this._eventInput = new EventHandler();
         this._eventOutput = new EventHandler();
@@ -147,6 +148,14 @@ define(function(require, exports, module) {
         this._items = items;
     };
 
+    LimitedScrollview.prototype.howLong = function howLong() {
+        var result = 0;
+        for (var i = 0; i < this._items.length; i++) {
+            result += this._items[i].getSize()[this.options.direction];
+        };
+        return result;
+    };
+
     /**
      * Returns the width and the height of the LimitedScrollview instance.
      *
@@ -213,7 +222,7 @@ define(function(require, exports, module) {
         var itemSize = _sizeForDir.call(this, this._items[this._currentItemIndex].getSize());
         var nextItemIndex = this._currentItemIndex + 1;
         while (this._items[nextItemIndex] && this._position + this._positionOffset >= itemSize) {
-            this._positionOffset -= nodeSize;
+            this._positionOffset -= itemSize;
             this._currentItemIndex = nextItemIndex;
             itemSize = _sizeForDir.call(this, this._items[this._currentItemIndex].getSize());
             nextItemIndex++;
