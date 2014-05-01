@@ -7,6 +7,13 @@ define(function(require, exports, module) {
     var ViewSequence = require('famous/core/ViewSequence');
     var EventHandler = require('famous/core/EventHandler');
 
+    var PhysicsEngine = require('famous/physics/PhysicsEngine');
+    var Particle = require('famous/physics/bodies/Particle');
+    var Drag = require('famous/physics/forces/Drag');
+    var Spring = require('famous/physics/forces/Spring');
+
+    var GenericSync = require('famous/inputs/GenericSync');
+
     /**
      * LimitedScrollview lays out a collection of renderables, and will browse through them based on 
      * accesed position. LimitedScrollview also broadcasts an 'edgeHit' event, with a position property of the location of the edge,
@@ -48,19 +55,171 @@ define(function(require, exports, module) {
         this._size = [undefined, undefined];
         this._contextSize = [undefined, undefined];
         this._itemsLength = 0;
+        this._springState = 0;
+        this._touchCount = 0;
+        this._touchVelocity = undefined;
+
+        this._physicsEngine = new PhysicsEngine();
+        this._particle = new Particle();
+        this._physicsEngine.addBody(this._particle);
+
+        this.spring = new Spring({anchor: [0, 0, 0]});
+
+        this.drag = new Drag({forceFunction: Drag.FORCE_FUNCTIONS.QUADRATIC});
+        this.friction = new Drag({forceFunction: Drag.FORCE_FUNCTIONS.LINEAR});
+
+        this.sync = new GenericSync({direction : this.options.direction});
 
         this._eventInput = new EventHandler();
         this._eventOutput = new EventHandler();
 
+        this._eventInput.pipe(this.sync);
+        this.sync.pipe(this._eventInput);
+
         EventHandler.setInputHandler(this, this._eventInput);
         EventHandler.setOutputHandler(this, this._eventOutput);
+
+        this.positionFrom(this.getPosition.bind(this));
+
+        _bindEvents.call(this);
     }
 
     LimitedScrollview.DEFAULT_OPTIONS = {
         direction: Utility.Direction.Y,
         margin: 0,
-        clipSize: undefined
+        clipSize: undefined,
+        friction: 0.0001,
+        drag: 0.0001,
+        edgeGrip: 0.5,
+        edgePeriod: 300,
+        edgeDamp: 1,
+        pagePeriod: 500,
+        pageDamp: 0.8,
+        pageStopSpeed: 10,
+        pageSwitchSpeed: 0.5,
+        speedLimit: 10
     };
+
+    var SpringStates = {
+        NONE: 0,
+        EDGE: 1,
+        PAGE: 2
+    };
+
+    function _handleStart(event) {
+        this._touchCount = event.count;
+        if (event.count === undefined) this._touchCount = 1;
+
+        _detachAgents.call(this);
+        this.setVelocity(0);
+        this._touchVelocity = 0;
+        this._earlyEnd = false;
+    }
+
+    function _handleMove(event) {
+        var velocity = -event.velocity;
+        var delta = -event.delta;
+
+        if (this._onEdge && event.slip) {
+            if ((velocity < 0 && this._onEdge < 0) || (velocity > 0 && this._onEdge > 0)) {
+                if (!this._earlyEnd) {
+                    _handleEnd.call(this, event);
+                    this._earlyEnd = true;
+                }
+            }
+            else if (this._earlyEnd && (Math.abs(velocity) > Math.abs(this.getVelocity()))) {
+                _handleStart.call(this, event);
+            }
+        }
+        if (this._earlyEnd) return;
+        this._touchVelocity = velocity;
+
+        if (event.slip) this.setVelocity(velocity);
+        else this.setPosition(this.getPosition() + delta);
+    }
+
+    function _handleEnd(event) {
+        this._touchCount = event.count || 0;
+        if (!this._touchCount) {
+            _detachAgents.call(this);
+            if (this._onEdge) _setSpring.call(this, this._edgeSpringPosition, SpringStates.EDGE);
+            _attachAgents.call(this);
+            var velocity = -event.velocity;
+            var speedLimit = this.options.speedLimit;
+            if (event.slip) speedLimit *= this.options.edgeGrip;
+            if (velocity < -speedLimit) velocity = -speedLimit;
+            else if (velocity > speedLimit) velocity = speedLimit;
+            this.setVelocity(velocity);
+            this._touchVelocity = undefined;
+            this._needsPaginationCheck = true;
+        }
+    }
+
+    function _bindEvents() {
+        this._eventInput.bindThis(this);
+        this._eventInput.on('start', _handleStart);
+        this._eventInput.on('update', _handleMove);
+        this._eventInput.on('end', _handleEnd);
+
+        this.on('edgeHit', function(data) {
+            this._edgeSpringPosition = data.position;
+        }.bind(this));
+    }
+
+
+    LimitedScrollview.prototype.getPosition = function getPosition() {
+        return this._particle.getPosition1D();
+    };
+
+    LimitedScrollview.prototype.setPosition = function setPosition(x) {
+        this._particle.setPosition1D(x);
+    };
+
+    LimitedScrollview.prototype.getVelocity = function getVelocity() {
+        return this._touchCount ? this._touchVelocity : this._particle.getVelocity1D();
+    };
+
+    LimitedScrollview.prototype.setVelocity = function setVelocity(v) {
+        this._particle.setVelocity1D(v);
+    };
+
+    function _detachAgents() {
+        this._springState = SpringStates.NONE;
+        this._physicsEngine.detachAll();
+    }
+
+    function _attachAgents() {
+        if (this._springState) this._physicsEngine.attach([this.spring], this._particle);
+        else this._physicsEngine.attach([this.drag, this.friction], this._particle);
+    }
+
+    function _setSpring(position, springState) {
+        var springOptions;
+        if (springState === SpringStates.EDGE) {
+            this._edgeSpringPosition = position;
+            springOptions = {
+                anchor: [this._edgeSpringPosition, 0, 0],
+                period: this.options.edgePeriod,
+                dampingRatio: this.options.edgeDamp
+            };
+        }
+        else if (springState === SpringStates.PAGE) {
+            this._pageSpringPosition = position;
+            springOptions = {
+                anchor: [this._pageSpringPosition, 0, 0],
+                period: this.options.pagePeriod,
+                dampingRatio: this.options.pageDamp
+            };
+        }
+
+        this.spring.setOptions(springOptions);
+        if (springState && !this._springState) {
+            _detachAgents.call(this);
+            this._springState = springState;
+            _attachAgents.call(this);
+        }
+        this._springState = springState;
+    }
 
     function _sizeForDir(size) {
         if (!size) size = this._contextSize;
