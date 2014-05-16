@@ -176,10 +176,10 @@ define(function(require, exports, module) {
                 this._states.splice(currIndex, 1);
             }
             if (item) {
-                result[currIndex] = modifier.modify({
+                result.push(modifier.modify({
                     origin: origin,
                     target: item.render()
-                });
+                }));
             }
             sequence = sequence.getNext();
             currIndex++;
