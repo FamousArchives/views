@@ -243,7 +243,7 @@ define(function(require, exports, module) {
         if ((positionNext && !velocitySwitch) || (velocitySwitch && velocityNext)) this.goToNextPage();
         else _setSpring.call(this, 0, SpringStates.PAGE);
 
-        this._needsPaginationCheck = false;
+        this._needsPaginationCheck = true;
     }
 
     function _setSpring(position, springState) {
