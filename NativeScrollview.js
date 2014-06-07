@@ -7,7 +7,7 @@
  * @copyright Famous Industries, Inc. 2014
  */
 
-define(function (require, exports, module) {
+define(function(require, exports, module) {
   var Group = require('famous/core/Group');
   var OptionsManager = require('famous/core/OptionsManager');
   var SequentialLayout = require('famous/views/SequentialLayout');
@@ -57,7 +57,6 @@ define(function (require, exports, module) {
     defaultItemSize:[50, 50],
     length:400
   };
-
 
   /**
    * Returns the width and the height of the NativeScrollview instance.
