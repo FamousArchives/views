@@ -34,6 +34,8 @@ define(function(require, exports, module) {
 
         this._ratios = new Transitionable(this.options.ratios);
         this._nodes = [];
+        
+        this._size = [undefined,undefined]; // for getSize; 
 
         this._cachedDirection = null;
         this._cachedTotalLength = false;
@@ -148,6 +150,16 @@ define(function(require, exports, module) {
         this._ratiosDirty = true;
     };
 
+
+    /**
+     * Get size
+     *
+     * @method getSize
+     */
+    FlexibleLayout.prototype.getSize = function getSize() {
+        return this._size;
+    };
+
     /**
      * Apply changes from this component to the corresponding document element.
      * This includes changes to classes, styles, size, content, opacity, origin,
@@ -158,7 +170,7 @@ define(function(require, exports, module) {
      * @param {Context} context commit context
      */
     FlexibleLayout.prototype.commit = function commit(context) {
-        var parentSize = context.size;
+        var parentSize = this._size = context.size;
         var parentTransform = context.transform;
         var parentOrigin = context.origin;
 
