@@ -214,7 +214,7 @@ define(function(require, exports, module) {
             this._needsPaginationCheck = true;
         }
 
-        this._nodeSwitch = this._currentIndex !== this.getCurrentIndex();
+        this._nodeSwitch = (this._currentIndex !== this.getCurrentIndex());
     }
 
     function _bindEvents() {
@@ -240,7 +240,12 @@ define(function(require, exports, module) {
         }.bind(this));
 
         this._particle.on('end', function() {
-            this._eventOutput.emit('settle');
+            if (!this.options.paginated)
+                this._eventOutput.emit('settle');
+            else {
+                if (this._springState !== SpringStates.EDGE || this._springState !== SpringStates.NONE)
+                    this._eventOutput.emit('settle');
+            }
         }.bind(this));
     }
 
@@ -540,20 +545,25 @@ define(function(require, exports, module) {
      * @param {Options} options An object of configurable options for the Scrollview instance.
      */
     Scrollview.prototype.setOptions = function setOptions(options) {
-        // preprocess directionality
+        // preprocess custom options
         if (options.direction !== undefined) {
             if (options.direction === 'x') options.direction = Utility.Direction.X;
             else if (options.direction === 'y') options.direction = Utility.Direction.Y;
         }
 
-        // propagate custom options to scroller
+        // patch custom options
+        this._optionsManager.setOptions(options);
+
+        // propagate options to sub-components
+
+        // scroller sub-component
         this._scroller.setOptions(options);
         if (options.groupScroll)
             this.subscribe(this._scroller);
         else
             this.unsubscribe(this._scroller);
 
-        // propagate custom options to physics
+        // physics sub-components
         if (options.drag) this.drag.setOptions({strength: options.drag});
         if (options.friction) this.friction.setOptions({strength: options.friction});
         if (options.edgePeriod || options.edgeDamp) {
@@ -563,7 +573,7 @@ define(function(require, exports, module) {
             });
         }
 
-        // propagate custom options to sync
+        // sync sub-component
         if (options.rails || options.direction || options.syncScale) {
             this.sync.setOptions({
                 rails: options.rails,
@@ -606,8 +616,6 @@ define(function(require, exports, module) {
      * @return {number} Render spec for this component
      */
     Scrollview.prototype.render = function render() {
-        if (!this._node) return null;
-
         if (this._springState === SpringStates.NONE)
             _normalizeState.call(this);
 
