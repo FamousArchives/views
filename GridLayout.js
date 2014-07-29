@@ -80,7 +80,7 @@ define(function(require, exports, module) {
             for (var j = 0; j < cols; j++) {
                 var oldIndex = currIndex;
                 if (this.options.followSequence && sequence) {
-                    var id = sequence.get().id
+                    var id = sequence.get().id;
                     oldIndex = oldIdIndexMap[id];
                     this._idIndexMap[id] = currIndex;
                     this._sequenceIdCache[currIndex] = id;
