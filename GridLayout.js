@@ -53,6 +53,16 @@ define(function(require, exports, module) {
         EventHandler.setOutputHandler(this, this._eventOutput);
     }
 
+    var grid_layout_sequence_id = 0;
+    function _getSequenceId(obj) {
+      if (obj.id) {
+        return obj.id;
+      } else {
+        obj.id = 'GridLayout.sequence.id_' + grid_layout_sequence_id++;
+        return obj.id;
+      }
+    }
+
     function _reflow(size, cols, rows) {
         var usableSize = [size[0], size[1]];
         usableSize[0] -= this.options.gutterSize[0] * (cols - 1);
@@ -80,7 +90,7 @@ define(function(require, exports, module) {
             for (var j = 0; j < cols; j++) {
                 var oldIndex = currIndex;
                 if (this.options.followSequence && sequence) {
-                    var id = sequence.get().id;
+                    var id = _getSequenceId(sequence.get());
                     oldIndex = oldIdIndexMap[id];
                     this._idIndexMap[id] = currIndex;
                     this._sequenceIdCache[currIndex] = id;
