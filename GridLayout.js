@@ -53,12 +53,12 @@ define(function(require, exports, module) {
         EventHandler.setOutputHandler(this, this._eventOutput);
     }
 
-    var grid_layout_sequence_id = 0;
+    var sequenceId = 0;
     function _getSequenceId(obj) {
       if (obj.id) {
         return obj.id;
       } else {
-        obj.id = 'GridLayout.sequence.id_' + grid_layout_sequence_id++;
+        obj.id = 'GridLayout.sequence.id_' + sequenceId++;
         return obj.id;
       }
     }
